@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат с помощником - Stoloto Assistant</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 180px);
+            background: var(--color-bg-secondary);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-lg);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        .message {
+            max-width: 70%;
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .message-user {
+            align-self: flex-end;
+            background: var(--color-yellow-primary);
+            color: var(--color-bg-primary);
+            font-weight: 500;
+        }
+
+        .message-bot {
+            align-self: flex-start;
+            background: var(--color-bg-tertiary);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .message-loading {
+            align-self: flex-start;
+            background: var(--color-bg-tertiary);
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes typing {
+
+            0%,
+            60%,
+            100% {
+                transform: translateY(0);
+            }
+
+            30% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 5px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--color-yellow-primary);
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        #chat-input-container {
+            padding: var(--spacing-md);
+            background: var(--color-bg-primary);
+            border-top: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .quick-action-btn {
+            padding: 0.5rem 1rem;
+            background: var(--color-bg-tertiary);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: var(--radius-full);
+            color: var(--color-text-secondary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .quick-action-btn:hover {
+            background: var(--color-yellow-primary);
+            color: var(--color-bg-primary);
+            border-color: var(--color-yellow-primary);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">Stoloto Assistant</div>
+            <ul class="navbar-nav" id="nav-menu">
+                <li><a href="/">Главная</a></li>
+                <li><a href="/lotteries">Все лотереи</a></li>
+                <li><a href="/chat" class="active">Чат</a></li>
+                <li id="nav-auth">
+                    <a href="#" onclick="handleAuthClick(); return false;">Вход</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <main style="padding-top: 80px;">
+        <section class="py-lg">
+            <div class="container" style="max-width: 900px;">
+                <h1 class="mb-md text-center">💬 Чат с помощником</h1>
+                <p class="mb-lg text-center" style="color: var(--color-text-muted);">
+                    Задавайте вопросы о лотереях и получайте персонализированные рекомендации
+                </p>
+
+                <div id="chat-container">
+                    <div id="chat-messages">
+                        <div class="message message-bot">
+                            <p>👋 Привет! Я ваш помощник по выбору лотерей. Я могу помочь вам:</p>
+                            <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
+                                <li>Выбрать подходящую лотерею</li>
+                                <li>Узнать о вероятностях выигрыша</li>
+                                <li>Получить статистику по лотереям</li>
+                                <li>Ответить на вопросы о правилах</li>
+                            </ul>
+                            <p style="margin-top: 0.5rem;">Задавайте вопросы!</p>
+                        </div>
+                    </div>
+
+                    <div id="chat-input-container">
+                        <div class="quick-actions">
+                            <button class="quick-action-btn"
+                                onclick="sendQuickMessage('Подобрать мне лотерею')">Подобрать лотерею</button>
+                            <button class="quick-action-btn"
+                                onclick="sendQuickMessage('Покажи статистику лотерей')">Статистика</button>
+                            <button class="quick-action-btn"
+                                onclick="sendQuickMessage('Какие лотереи самые популярные?')">Популярные</button>
+                            <button class="quick-action-btn"
+                                onclick="sendQuickMessage('Где больше шансов выиграть?')">Шансы выигрыша</button>
+                        </div>
+
+                        <form id="chat-form" onsubmit="sendMessage(event)" class="flex gap-sm"
+                            style="align-items: stretch;">
+                            <input type="text" id="chat-input" class="input" placeholder="Введите ваш вопрос..."
+                                autocomplete="off" style="flex: 1;">
+                            <button type="submit" class="btn btn-primary"
+                                style="white-space: nowrap;">Отправить</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/js/cursor-glow.js"></script>
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+
+        // Update navbar based on auth status
+        function updateNavbar() {
+            const authLink = document.getElementById('nav-auth');
+            const isAuth = localStorage.getItem('access_token');
+            if (isAuth) {
+                authLink.innerHTML = '<a href="#" onclick="handleAuthClick(); return false;">Выход</a>';
+            } else {
+                authLink.innerHTML = '<a href="/" onclick="return true;">Вход</a>';
+            }
+        }
+
+        function handleAuthClick() {
+            localStorage.removeItem('access_token');
+            window.location.href = '/';
+        }
+
+        function addMessage(message, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'message-user' : 'message-bot'}`;
+
+            // Format message with line breaks
+            const formattedMessage = message.replace(/\n/g, '<br>');
+            messageDiv.innerHTML = `<p>${formattedMessage}</p>`;
+
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function showTypingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.id = 'typing-indicator';
+            indicator.className = 'message-loading';
+            indicator.innerHTML = `
+                <div class="typing-indicator">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            `;
+            chatMessages.appendChild(indicator);
+            scrollToBottom();
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendMessage(event) {
+            event.preventDefault();
+
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            // Disable input while processing
+            chatInput.disabled = true;
+            document.querySelector('button[type="submit"]').disabled = true;
+
+            // Add user message to chat
+            addMessage(message, true);
+            chatInput.value = '';
+
+            // Show loading indicator
+            showTypingIndicator();
+
+            try {
+                const response = await fetch('/api/test/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+
+                // Remove typing indicator
+                removeTypingIndicator();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Ошибка при отправке сообщения');
+                }
+
+                // Add bot response to chat
+                addMessage(data.message, false);
+            } catch (error) {
+                console.error('Error:', error);
+                removeTypingIndicator();
+                addMessage('Извините, произошла ошибка. Попробуйте снова.', false);
+            } finally {
+                chatInput.disabled = false;
+                document.querySelector('button[type="submit"]').disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        function sendQuickMessage(message) {
+            chatInput.value = message;
+            document.getElementById('chat-form').dispatchEvent(new Event('submit'));
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateNavbar();
+        });
+
+        // Focus input on load
+        chatInput.focus();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест Чат-бота - Stoloto Assistant</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container" style="max-width: 800px; padding-top: 3rem;">
+        <div class="card">
+            <h1 class="mb-md">Тест Чат-бота с Ollama</h1>
+            <p class="mb-lg" style="color: var(--color-text-secondary);">
+                Эта тестовая страница демонстрирует работу AI-помощника на базе Ollama без необходимости авторизации.
+            </p>
+
+            <div id="chat-messages"
+                style="max-height: 500px; overflow-y: auto; margin-bottom: 2rem; padding: 1rem; background: var(--color-bg-tertiary); border-radius: var(--radius-md);">
+                <div style="text-align: center; color: var(--color-text-muted); padding: 2rem;">
+                    Отправьте сообщение, чтобы начать чат
+                </div>
+            </div>
+
+            <form id="chat-form" onsubmit="sendMessage(event)">
+                <div class="flex gap-md">
+                    <input type="text" id="message-input" class="input" placeholder="Напишите ваше сообщение..."
+                        style="flex: 1;">
+                    <button type="submit" class="btn btn-primary" id="send-btn">Отправить</button>
+                </div>
+            </form>
+
+            <div id="error-message" style="color: #ff4444; margin-top: 1rem; display: none;"></div>
+
+            <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--color-bg-tertiary);">
+                <p style="font-size: 0.9rem; color: var(--color-text-muted);">
+                    <strong>Статус Ollama:</strong> <span id="ollama-status" class="loading">Проверка...</span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/cursor-glow.js"></script>
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const errorDiv = document.getElementById('error-message');
+        const ollamaStatus = document.getElementById('ollama-status');
+
+        // Check Ollama status on load
+        window.addEventListener('DOMContentLoaded', () => {
+            ollamaStatus.textContent = '✓ Активен';
+            ollamaStatus.style.color = 'var(--color-yellow-primary)';
+            ollamaStatus.classList.remove('loading');
+        });
+
+        function addMessage(message, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.style.marginBottom = '1rem';
+            messageDiv.style.padding = '1rem';
+            messageDiv.style.borderRadius = 'var(--radius-md)';
+            messageDiv.style.background = isUser ? 'var(--color-yellow-dark)' : 'var(--color-bg-secondary)';
+            messageDiv.style.color = 'var(--color-text-primary)';
+
+            const label = document.createElement('strong');
+            label.textContent = isUser ? 'Вы: ' : 'Помощник: ';
+            label.style.color = isUser ? 'var(--color-bg-primary)' : 'var(--color-yellow-primary)';
+
+            const text = document.createElement('span');
+            text.textContent = message;
+            text.style.whiteSpace = 'pre-wrap';
+
+            messageDiv.appendChild(label);
+            messageDiv.appendChild(text);
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // Remove initial message if this is the first real message
+            const initialMsg = chatMessages.querySelector('div[style*="text-align: center"]');
+            if (initialMsg) {
+                initialMsg.remove();
+            }
+        }
+
+        async function sendMessage(event) {
+            event.preventDefault();
+
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Disable input while processing
+            messageInput.disabled = true;
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Отправка...';
+            errorDiv.style.display = 'none';
+
+            // Add user message to chat
+            addMessage(message, true);
+            messageInput.value = '';
+
+            try {
+                const response = await fetch('/api/test/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Ошибка при отправке сообщения');
+                }
+
+                // Add bot response to chat
+                addMessage(data.message, false);
+            } catch (error) {
+                console.error('Error:', error);
+                errorDiv.textContent = error.message || 'Произошла ошибка. Попробуйте снова.';
+                errorDiv.style.display = 'block';
+            } finally {
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Отправить';
+                messageInput.focus();
+            }
+        }
+    </script>
+</body>
+
+</html>

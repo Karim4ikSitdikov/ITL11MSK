@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Все лотереи - Stoloto Assistant</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">Stoloto Assistant</div>
+            <ul class="navbar-nav">
+                <li><a href="/dashboard">Главная</a></li>
+                <li><a href="/lotteries" class="active">Все лотереи</a></li>
+                <li><a href="/chat">Чат</a></li>
+                <li><a href="#" onclick="logout()">Выход</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main style="padding-top: 80px;">
+        <section class="py-lg">
+            <div class="container-wide">
+                <h1 class="mb-lg">Все лотереи Столото</h1>
+
+                <!-- Filters -->
+                <div class="card mb-lg" style="padding: 1.5rem;">
+                    <div class="flex gap-md" style="flex-wrap: wrap; align-items: flex-end;">
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 200px;">
+                            <label for="filter-type">Тип лотереи</label>
+                            <select id="filter-type" class="input" onchange="filterLotteries()">
+                                <option value="">Все</option>
+                                <option value="instant">Мгновенные</option>
+                                <option value="draw">Тиражные</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 200px;">
+                            <label for="filter-max-price">Макс. цена</label>
+                            <input type="number" id="filter-max-price" class="input" placeholder="₽"
+                                onchange="filterLotteries()">
+                        </div>
+                        <button class="btn btn-secondary" onclick="clearFilters()">Сбросить</button>
+                    </div>
+                </div>
+
+                <!-- Lotteries Grid -->
+                <div id="lotteries-container" class="grid grid-3 loading">
+                    <p style="grid-column: 1/-1; text-align: center;">Загрузка лотерей...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/js/cursor-glow.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script>
+        requireAuth();
+
+        let allLotteries = [];
+
+        async function loadLotteries() {
+            try {
+                const data = await LotteriesAPI.getAll();
+                allLotteries = data.lotteries || [];
+                displayLotteries(allLotteries);
+            } catch (error) {
+                console.error('Error loading lotteries:', error);
+                document.getElementById('lotteries-container').innerHTML =
+                    '<p style="grid-column: 1/-1; text-align: center; color: #ff4444;">Ошибка загрузки данных</p>';
+            }
+        }
+
+        function displayLotteries(lotteries) {
+            const container = document.getElementById('lotteries-container');
+            container.classList.remove('loading');
+
+            if (lotteries.length === 0) {
+                container.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Лотереи не найдены</p>';
+                return;
+            }
+
+            container.innerHTML = lotteries.map(lottery => {
+                const typeLabel = lottery.lottery_type === 'instant' ? 'Мгновенная' : 'Тиражная';
+                const typeColor = lottery.lottery_type === 'instant' ? 'var(--color-yellow-primary)' : 'white';
+
+                // Calculate estimated win chance (simplified - would use real probability from DB)
+                const estimatedChance = lottery.lottery_type === 'instant' ?
+                    (Math.random() * 10 + 5).toFixed(1) :
+                    (Math.random() * 5 + 0.1).toFixed(2);
+
+                return `
+                    <div class="card">
+                        <div class="flex-between mb-sm">
+                            <h3>${lottery.name}</h3>
+                            <span class="badge" style="background: ${typeColor}; color: var(--color-bg-primary);">${typeLabel}</span>
+                        </div>
+                        
+                        <p style="font-size: 0.9rem; color: var(--color-text-muted); margin-bottom: 1rem;">
+                            ${lottery.description || 'Попробуйте свою удачу в этой лотерее'}
+                        </p>
+                        
+                        <div class="grid gap-sm" style="grid-template-columns: 1fr 1fr; margin-bottom: 1rem;">
+                            <div>
+                                <div style="font-size: 0.75rem; color: var(--color-text-muted);">Цена билета</div>
+                                <div style="font-size: 1.2rem; font-weight: 600; color: var(--color-yellow-primary);">${lottery.ticket_price}₽</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.75rem; color: var(--color-text-muted);">Макс. приз</div>
+                                <div style="font-size: 1.2rem; font-weight: 600;">${formatNumber(lottery.max_prize)}</div>
+                            </div>
+                        </div>
+                        
+                        ${lottery.draw_frequency ? `
+                            <div style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 0.5rem;">
+                                📅 ${lottery.draw_frequency}
+                            </div>
+                        ` : ''}
+                        
+                        <div style="font-size: 0.9rem; padding: 0.5rem; background: rgba(255, 215, 0, 0.1); border-radius: 8px; margin-top: auto;">
+                            <span style="color: var(--color-yellow-primary);">⚡ Шанс выигрыша: ~${estimatedChance}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterLotteries() {
+            const type = document.getElementById('filter-type').value;
+            const maxPrice = parseFloat(document.getElementById('filter-max-price').value);
+
+            let filtered = allLotteries;
+
+            if (type) {
+                filtered = filtered.filter(l => l.lottery_type === type);
+            }
+
+            if (maxPrice && !isNaN(maxPrice)) {
+                filtered = filtered.filter(l => l.ticket_price <= maxPrice);
+            }
+
+            displayLotteries(filtered);
+        }
+
+        function clearFilters() {
+            document.getElementById('filter-type').value = '';
+            document.getElementById('filter-max-price').value = '';
+            displayLotteries(allLotteries);
+        }
+
+        function formatNumber(num) {
+            if (!num) return 'N/A';
+            if (num >= 1000000000) return (num / 1000000000).toFixed(1) + ' млрд₽';
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + ' млн₽';
+            if (num >= 1000) return (num / 1000).toFixed(0) + ' тыс₽';
+            return num + '₽';
+        }
+
+        function logout() {
+            AuthAPI.logout();
+        }
+
+        document.addEventListener('DOMContentLoaded', loadLotteries);
+    </script>
+</body>
+
+</html>

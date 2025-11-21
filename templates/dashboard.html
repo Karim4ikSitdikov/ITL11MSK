@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Stoloto Assistant</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">Stoloto Assistant</div>
+            <ul class="navbar-nav">
+                <li><a href="/dashboard" class="active">Главная</a></li>
+                <li><a href="/lotteries">Все лотереи</a></li>
+                <li><a href="/chat">Чат</a></li>
+                <li><a href="#" onclick="logout()">Выход</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main style="padding-top: 80px;">
+        <section class="py-lg">
+            <div class="container">
+                <div class="mb-xl">
+                    <h1 id="user-greeting">Добро пожаловать!</h1>
+                    <p style="color: var(--color-text-muted);">Ваш персональный помощник по выбору лотерей</p>
+                </div><!-- Chat CTA -->
+                <div class="flex-center mb-xl">
+                    <a href="/chat" class="btn btn-primary btn-large">
+                        💬 Открыть чат с помощником
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Statistics Section -->
+        <section class="py-lg" style="background: var(--color-bg-secondary);">
+            <div class="container">
+                <h2 class="mb-lg">Статистика о лотереях</h2>
+                <div class="grid grid-4" id="stats-grid">
+                    <div class="card stat-card loading">
+                        <div class="stat-number">--</div>
+                        <div class="stat-label">Лотерей</div>
+                    </div>
+                    <div class="card stat-card loading">
+                        <div class="stat-number">--</div>
+                        <div class="stat-label">Средняя цена</div>
+                    </div>
+                    <div class="card stat-card loading">
+                        <div class="stat-number">--</div>
+                        <div class="stat-label">Тиражных</div>
+                    </div>
+                    <div class="card stat-card loading">
+                        <div class="stat-number">--</div>
+                        <div class="stat-label">Мгновенных</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recommended Lotteries -->
+        <section class="py-lg">
+            <div class="container">
+                <div class="flex-between mb-lg">
+                    <h2>Подходящие вам лотереи</h2>
+                    <button class="btn btn-secondary" onclick="window.location.href='/lotteries'">
+                        Все лотереи →
+                    </button>
+                </div>
+
+                <div id="recommendations-container" class="grid grid-3 loading">
+                    <p style="grid-column: 1/-1; text-align: center;">Загрузка рекомендаций...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Preferences Section -->
+        <section class="py-lg" style="background: var(--color-bg-secondary);">
+            <div class="container">
+                <h2 class="mb-lg">Ваши предпочтения</h2>
+                <div class="card">
+                    <div id="preferences-display" class="loading">
+                        <p>Загрузка...</p>
+                    </div>
+                    <button class="btn btn-secondary mt-lg" onclick="showPreferencesModal()">
+                        Изменить предпочтения
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Preferences Modal -->
+    <div id="preferences-modal"
+        style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
+        <div class="card" style="max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto;">
+            <h2 class="mb-lg">Изменить предпочтения</h2>
+            <form id="preferences-form" onsubmit="updatePreferences(event)">
+                <div class="form-group">
+                    <label for="pref-budget">Бюджет (₽)</label>
+                    <input type="number" id="pref-budget" class="input" step="50">
+                </div>
+                <div class="form-group">
+                    <label for="pref-type">Тип выигрыша</label>
+                    <select id="pref-type" class="input">
+                        <option value="both">Любой</option>
+                        <option value="instant">Мгновенный</option>
+                        <option value="draw">Тиражный</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="pref-size">Желаемая величина приза</label>
+                    <select id="pref-size" class="input">
+                        <option value="small">Небольшие частые выигрыши</option>
+                        <option value="medium">Средние призы</option>
+                        <option value="large">Крупные призы</option>
+                        <option value="jackpot">Джекпот</option>
+                    </select>
+                </div>
+                <div class="flex gap-md mt-lg">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Сохранить</button>
+                    <button type="button" class="btn btn-secondary" onclick="hidePreferencesModal()">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/cursor-glow.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script>
+        requireAuth();
+
+        async function loadUserData() {
+            try {
+                const user = await AuthAPI.getCurrentUser();
+                // Update greeting with user's name
+                const greeting = user.full_name
+                    ? `Привет, ${user.full_name}!`
+                    : `Привет!`;
+                document.getElementById('user-greeting').textContent = greeting;
+
+                // Display preferences
+                if (user.preferences) {
+                    displayPreferences(user.preferences);
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+            }
+        }
+
+        async function loadStatistics() {
+            try {
+                const data = await AnalyticsAPI.getSummary();
+                const summary = data.summary;
+
+                const statsCards = document.querySelectorAll('#stats-grid .stat-card');
+                statsCards[0].innerHTML = `
+                    <div class="stat-number">${summary.total_active_lotteries || 0}</div>
+                    <div class="stat-label">Лотерей</div>
+                `;
+                statsCards[1].innerHTML = `
+                    <div class="stat-number">${summary.avg_ticket_price ? Math.round(summary.avg_ticket_price) + '₽' : 'N/A'}</div>
+                    <div class="stat-label">Средняя цена</div>
+                `;
+                statsCards[2].innerHTML = `
+                    <div class="stat-number">${summary.draw_lotteries || 0}</div>
+                    <div class="stat-label">Тиражных</div>
+                `;
+                statsCards[3].innerHTML = `
+                    <div class="stat-number">${summary.instant_lotteries || 0}</div>
+                    <div class="stat-label">Мгновенных</div>
+                `;
+
+                document.querySelectorAll('#stats-grid .stat-card').forEach(c => c.classList.remove('loading'));
+            } catch (error) {
+                console.error('Error loading statistics:', error);
+            }
+        }
+
+        async function loadRecommendations() {
+            try {
+                const data = await LotteriesAPI.getRecommended();
+                const container = document.getElementById('recommendations-container');
+                container.classList.remove('loading');
+
+                if (data.recommendations && data.recommendations.length > 0) {
+                    container.innerHTML = data.recommendations.slice(0, 6).map(rec => `
+                        <div class="card">
+                            <h3 class="mb-sm">${rec.lottery.name}</h3>
+                            <div class="badge mb-md">Рейтинг: ${rec.score.toFixed(0)}/100</div>
+                            <p style="font-size: 0.9rem; color: var(--color-text-muted);">
+                                ${rec.lottery.description || rec.explanation || 'Подходящая для вас лотерея'}
+                            </p>
+                            <p class="mt-sm" style="font-size: 1.1rem; font-weight: 600; color: var(--color-yellow-primary);">
+                                ${rec.lottery.ticket_price}₽
+                            </p>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Рекомендации появятся после заполнения предпочтений</p>';
+                }
+            } catch (error) {
+                console.error('Error loading recommendations:', error);
+                document.getElementById('recommendations-container').innerHTML =
+                    '<p style="grid-column: 1/-1; text-align: center;">Ошибка загрузки рекомендаций</p>';
+            }
+        }
+
+        function displayPreferences(prefs) {
+            const typeMap = {
+                'both': 'Любой',
+                'instant': 'Мгновенный',
+                'draw': 'Тиражный'
+            };
+            const sizeMap = {
+                'small': 'Небольшие выигрыши',
+                'medium': 'Средние призы',
+                'large': 'Крупные призы',
+                'jackpot': 'Джекпот'
+            };
+
+            document.getElementById('preferences-display').innerHTML = `
+                <div class="grid grid-2 gap-md">
+                    <div>
+                        <div style="color: var(--color-text-muted); font-size: 0.85rem;">Бюджет</div>
+                        <div style="font-size: 1.2rem; font-weight: 600;">${prefs.budget || 'Не указан'}${prefs.budget ? '₽' : ''}</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--color-text-muted); font-size: 0.85rem;">Тип выигрыша</div>
+                        <div style="font-size: 1.2rem; font-weight: 600;">${typeMap[prefs.preferred_prize_type] || 'Не указан'}</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--color-text-muted); font-size: 0.85rem;">Желаемый приз</div>
+                        <div style="font-size: 1.2rem; font-weight: 600;">${sizeMap[prefs.preferred_prize_size] || 'Не указан'}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showPreferencesModal() {
+            document.getElementById('preferences-modal').style.display = 'flex';
+        }
+
+        function hidePreferencesModal() {
+            document.getElementById('preferences-modal').style.display = 'none';
+        }
+
+        async function updatePreferences(event) {
+            event.preventDefault();
+
+            const prefs = {
+                budget: parseFloat(document.getElementById('pref-budget').value) || null,
+                preferred_prize_type: document.getElementById('pref-type').value,
+                preferred_prize_size: document.getElementById('pref-size').value
+            };
+
+            try {
+                await PreferencesAPI.update(prefs);
+                hidePreferencesModal();
+                location.reload();
+            } catch (error) {
+                alert('Ошибка сохранения: ' + error.message);
+            }
+        }
+
+        function logout() {
+            AuthAPI.logout();
+        }
+
+        // Load all data
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUserData();
+            loadStatistics();
+            loadRecommendations();
+        });
+    </script>
+</body>
+
+</html>

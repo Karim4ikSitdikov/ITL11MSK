@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Твой помощник в выборе лотереи - Stoloto Assistant</title>
+    <meta name="description" content="Умный помощник по выбору лотерей Столото с персонализированными рекомендациями">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Main Content -->
+    <main>
+        <!-- Hero Section -->
+        <section class="py-xl" style="min-height: 100vh; display: flex; align-items: center;">
+            <div class="container">
+                <div style="text-align: center; max-width: 800px; margin: 0 auto;">
+                    <h1 class="mb-md">Твой помощник в выборе лотереи</h1>
+                    <p style="font-size: 1.2rem; margin-bottom: 2rem;">
+                        Персонализированные рекомендации лотерей на основе ваших предпочтений и AI-анализа
+                    </p>
+                    <button class="btn btn-primary btn-large" onclick="scrollToStats()">
+                        Узнать, какие лотереи мне подходят
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Statistics Section -->
+        <section id="statistics" class="py-xl" style="background: var(--color-bg-secondary);">
+            <div class="container">
+                <h2 style="text-align: center;" class="mb-xl">Статистика о лотереях в цифрах</h2>
+
+                <div class="grid grid-3" id="stats-container">
+                    <div class="card stat-card loading">
+                        <div class="stat-number">--</div>
+                        <div class="stat-label">Активных лотерей</div>
+                    </div>
+                    <div class="card stat-card loading">
+                        <div class="stat-number">--</div>
+                        <div class="stat-label">Средняя цена билета</div>
+                    </div>
+                    <div class="card stat-card loading">
+                        <div class="stat-number">--</div>
+                        <div class="stat-label">Максимальный джекпот</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA Section -->
+        <section class="py-xl">
+            <div class="container">
+                <div class="card" style="max-width: 600px; margin: 0 auto; text-align: center; padding: 3rem;">
+                    <h2 class="mb-md">Готовы найти свою лотерею?</h2>
+                    <p class="mb-lg">
+                        Зарегистрируйтесь, укажите свои предпочтения, и наш умный помощник подберет для вас лотереи с
+                        наибольшим шансом на успех
+                    </p>
+                    <div class="flex-center gap-md" style="flex-wrap: wrap;">
+                        <a href="/register" class="btn btn-primary btn-large">Зарегистрироваться</a>
+                        <button class="btn btn-secondary" onclick="showLoginModal()">Уже есть аккаунт</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Login Modal (Simple version - you can enhance this) -->
+    <div id="login-modal"
+        style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10000; align-items: center; justify-content: center;">
+        <div class="card" style="max-width: 400px; width: 90%;">
+            <h2 class="mb-lg">Вход</h2>
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" class="input" required placeholder="your@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Пароль</label>
+                    <input type="password" id="login-password" class="input" required placeholder="••••••••">
+                </div>
+                <div class="flex gap-md" style="margin-top: 2rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Войти</button>
+                    <button type="button" class="btn btn-secondary" onclick="hideLoginModal()">Отмена</button>
+                </div>
+            </form>
+            <div id="login-error" style="color: #ff4444; margin-top: 1rem; display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/cursor-glow.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script>
+        // Load statistics
+        async function loadStatistics() {
+            try {
+                const data = await AnalyticsAPI.getSummary();
+                const summary = data.summary;
+                
+                // Update stats
+                document.querySelectorAll('.stat-card')[0].innerHTML = `
+                    <div class="stat-number">${summary.total_active_lotteries || 0}</div>
+                    <div class="stat-label">Активных лотерей</div>
+                `;
+                
+                document.querySelectorAll('.stat-card')[1].innerHTML = `
+                    <div class="stat-number">${summary.avg_ticket_price ? Math.round(summary.avg_ticket_price) : 0}₽</div>
+                    <div class="stat-label">Средняя цена билета</div>
+                `;
+                
+                document.querySelectorAll('.stat-card')[2].innerHTML = `
+                    <div class="stat-number">${summary.biggest_jackpot ? formatLargeNumber(summary.biggest_jackpot) : '0'}₽</div>
+                    <div class="stat-label">Максимальный джекпот</div>
+                `;
+                
+                // Remove loading state
+                document.querySelectorAll('.stat-card').forEach(card => card.classList.remove('loading'));
+            } catch (error) {
+                console.error('Error loading statistics:', error);
+                // Show fallback data
+                document.querySelectorAll('.stat-card').forEach(card => card.classList.remove('loading'));
+            }
+        }
+        
+        function formatLargeNumber(num) {
+            if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'млрд';
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'млн';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'тыс';
+            return num.toString();
+        }
+        
+        function scrollToStats() {
+            document.getElementById('statistics').scrollIntoView({ behavior: 'smooth' });
+            setTimeout(() => {
+                window.location.href = '/register';
+            }, 1000);
+        }
+        
+        function showLoginModal() {
+            document.getElementById('login-modal').style.display = 'flex';
+        }
+        
+        function hideLoginModal() {
+            document.getElementById('login-modal').style.display = 'none';
+            document.getElementById('login-error').style.display = 'none';
+        }
+        
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const errorDiv = document.getElementById('login-error');
+            
+            try {
+                const data = await AuthAPI.login(email, password);
+                setAuthToken(data.access_token);
+                
+                // Small delay to ensure token is saved
+                await new Promise(resolve => setTimeout(resolve, 100));
+                window.location.href = '/dashboard';
+            } catch (error) {
+                errorDiv.textContent = error.message || 'Ошибка входа';
+                errorDiv.style.display = 'block';
+            }
+        }
+        
+        // Check if already logged in
+        if (isAuthenticated()) {
+            window.location.href = '/dashboard';
+        }
+        
+        // Load data on page load
+        document.addEventListener('DOMContentLoaded', loadStatistics);
+    </script>
+</body>
+
+</html>
